@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.4</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.5</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -292,7 +292,7 @@
       <button class="btn btn-small" onclick="exportCSV()">CSV書き出し</button>
       <button class="btn btn-small" onclick="document.getElementById('adifFile').click()">ADIF読み込み</button>
     </div>
-    <input type="file" id="adifFile" accept=".adi,.adif,.txt" style="display:none" onchange="importADIF(this)">
+    <input type="file" id="adifFile" style="display:none" onchange="importADIF(this)">
     <p style="font-size:11px;color:var(--muted);margin-top:8px;">
       データはこの端末のブラウザ内に保存されます。機種変更前にADIFで書き出してバックアップしてください。
       ADIFはTurbo HAMLOGやAirHamLogに取り込めます。
