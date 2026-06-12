@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.3</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.4</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -700,7 +700,10 @@ function importADIF(input) {
       // ヘッダ以降を取得
       const body = text.toUpperCase().includes('<EOH>') ? text.slice(text.toUpperCase().indexOf('<EOH>') + 5) : text;
       const records = body.split(/<EOR>/i);
+      // 既存記録と同じ「コールサイン+日付+時刻」は重複として読み飛ばす
+      const existing = new Set(qsos.map(q => q.callsign + '|' + q.qsoDate + '|' + q.qsoTime));
       let count = 0;
+      let skipped = 0;
       for (const rec of records) {
         const fields = {};
         const re = /<([A-Za-z_]+):(\d+)(?::[^>]*)?>/g;
@@ -714,11 +717,17 @@ function importADIF(input) {
         if (!fields.CALL) continue;
         const d = fields.QSO_DATE || '';
         const t = fields.TIME_ON || '';
+        const callsign = fields.CALL.toUpperCase();
+        const qsoDate = d.length === 8 ? d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8) : nowDateStr();
+        const qsoTime = t.length >= 4 ? t.slice(0,2)+':'+t.slice(2,4) : '00:00';
+        const key = callsign + '|' + qsoDate + '|' + qsoTime;
+        if (existing.has(key)) { skipped++; continue; }
+        existing.add(key);
         qsos.push({
           id: uid(),
-          callsign: fields.CALL.toUpperCase(),
-          qsoDate: d.length === 8 ? d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8) : nowDateStr(),
-          qsoTime: t.length >= 4 ? t.slice(0,2)+':'+t.slice(2,4) : '00:00',
+          callsign: callsign,
+          qsoDate: qsoDate,
+          qsoTime: qsoTime,
           freq: fields.FREQ || '',
           band: ADIF_BAND_REV[(fields.BAND||'').toLowerCase()] || bandFromFreq(fields.FREQ) || '',
           mode: fields.MODE || '',
@@ -734,7 +743,7 @@ function importADIF(input) {
       sortQsos();
       save();
       render();
-      showToast(count + ' 件を読み込みました');
+      showToast(count + ' 件を読み込みました' + (skipped > 0 ? '(重複 ' + skipped + ' 件は除外)' : ''));
     } catch (e) {
       showToast('読み込みに失敗しました');
     }
