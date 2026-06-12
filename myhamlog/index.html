@@ -198,7 +198,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.7</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.8</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -299,12 +299,14 @@
       <button class="btn btn-small" onclick="exportCSV()">CSV書き出し</button>
       <button class="btn btn-small" onclick="document.getElementById('adifFile').click()">ADIF読み込み</button>
       <button class="btn btn-small" onclick="document.getElementById('hamlogFile').click()">HAMLOG CSV読み込み</button>
+      <button class="btn btn-small" onclick="exportHamlogCSV()">HAMLOG CSV書き出し</button>
     </div>
     <input type="file" id="adifFile" style="display:none" onchange="importADIF(this)">
     <input type="file" id="hamlogFile" style="display:none" onchange="importHamlogCSV(this)">
     <p style="font-size:11px;color:var(--muted);margin-top:8px;">
       データはこの端末のブラウザ内に保存されます。機種変更前にADIFで書き出してバックアップしてください。
       「HAMLOG CSV読み込み」は、Turbo HAMLOGの「検索→複合条件検索と印刷」でCSV出力したファイルをそのまま取り込めます(重複は自動除外)。
+      「HAMLOG CSV書き出し」で作ったファイルは、Turbo HAMLOGの「データのインポート」で取り込めます。
     </p>
   </div>
 </main>
@@ -823,6 +825,53 @@ function importHamlogCSV(input) {
     input.value = '';
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ---------- Turbo HAMLOG CSV書き出し ----------
+// HAMLOGの「データのインポート」が読める形式
+// (列順: Call, Date, Time, His, My, Freq, Mode, Code, GL, QSL, Name, QTH, Remarks1, Remarks2 / Shift-JIS)
+function buildHamlogCSV() {
+  const escCsv = function(v) {
+    v = String(v == null ? '' : v);
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  const lines = qsos.map(function(q) {
+    const d = (q.qsoDate || '').split('-'); // YYYY-MM-DD
+    const dateStr = d.length === 3 ? d[0].slice(2) + '/' + d[1] + '/' + d[2] : '';
+    const timeStr = q.qsoTime ? q.qsoTime + 'J' : '';
+    return [q.callsign, dateStr, timeStr, q.rstSent, q.rstRcvd, q.freq, q.mode,
+            '', '', '', q.opName, q.qth, q.remarks, q.myQth].map(escCsv).join(',');
+  });
+  return lines.join('\r\n') + '\r\n';
+}
+
+function exportHamlogCSV() {
+  if (qsos.length === 0) return showToast('記録がありません');
+  loadSjisLib(function(ok) {
+    if (!ok) {
+      showError('文字コード変換ライブラリを読み込めませんでした。インターネット接続を確認してもう一度お試しください。');
+      return;
+    }
+    const text = buildHamlogCSV();
+    const sjis = Encoding.convert(Encoding.stringToCode(text), 'SJIS', 'UNICODE');
+    const blob = new Blob([new Uint8Array(sjis)], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'myhamlog_for_hamlog_' + nowDateStr() + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('HAMLOG形式CSVを書き出しました');
+  });
+}
+
+// Shift-JIS変換ライブラリ(encoding-japanese)を必要になったときだけ読み込む
+function loadSjisLib(cb) {
+  if (window.Encoding && window.Encoding.convert) return cb(true);
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/encoding-japanese@2.2.0/encoding.min.js';
+  s.onload = function() { cb(!!(window.Encoding && window.Encoding.convert)); };
+  s.onerror = function() { cb(false); };
+  document.head.appendChild(s);
 }
 
 // HAMLOGの日付 "26/06/12" や "2026/06/12" を YYYY-MM-DD に変換
