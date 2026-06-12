@@ -198,7 +198,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.6</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.7</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -298,11 +298,13 @@
       <button class="btn btn-small" onclick="exportADIF()">ADIF書き出し</button>
       <button class="btn btn-small" onclick="exportCSV()">CSV書き出し</button>
       <button class="btn btn-small" onclick="document.getElementById('adifFile').click()">ADIF読み込み</button>
+      <button class="btn btn-small" onclick="document.getElementById('hamlogFile').click()">HAMLOG CSV読み込み</button>
     </div>
     <input type="file" id="adifFile" style="display:none" onchange="importADIF(this)">
+    <input type="file" id="hamlogFile" style="display:none" onchange="importHamlogCSV(this)">
     <p style="font-size:11px;color:var(--muted);margin-top:8px;">
       データはこの端末のブラウザ内に保存されます。機種変更前にADIFで書き出してバックアップしてください。
-      ADIFはTurbo HAMLOGやAirHamLogに取り込めます。
+      「HAMLOG CSV読み込み」は、Turbo HAMLOGの「検索→複合条件検索と印刷」でCSV出力したファイルをそのまま取り込めます(重複は自動除外)。
     </p>
   </div>
 </main>
@@ -601,7 +603,14 @@ function openEdit(id) {
   document.getElementById('e_qsoTime').value = q.qsoTime;
   document.getElementById('e_freq').value = q.freq || '';
   document.getElementById('e_band').value = q.band || '';
-  document.getElementById('e_mode').value = q.mode || 'SSB';
+  // HAMLOG等から取り込んだ未知のモードは選択肢に追加して保持する
+  const modeSel = document.getElementById('e_mode');
+  if (q.mode && !Array.from(modeSel.options).some(o => o.value === q.mode)) {
+    const opt = document.createElement('option');
+    opt.textContent = q.mode;
+    modeSel.appendChild(opt);
+  }
+  modeSel.value = q.mode || 'SSB';
   document.getElementById('e_rstSent').value = q.rstSent || '';
   document.getElementById('e_rstRcvd').value = q.rstRcvd || '';
   document.getElementById('e_opName').value = q.opName || '';
@@ -757,6 +766,100 @@ function importADIF(input) {
     input.value = '';
   };
   reader.readAsText(file);
+}
+
+// ---------- Turbo HAMLOG CSV読み込み ----------
+// 列順: Call, Date, Time, His, My, Freq, Mode, Code, GL, QSL, Name, QTH, Remarks1, Remarks2
+function importHamlogCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      // HAMLOGのCSVはShift-JIS。UTF-8として読めなければShift-JISで読み直す
+      let text;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(reader.result); }
+      catch (e) { text = new TextDecoder('shift_jis').decode(reader.result); }
+      const rows = parseCSV(text);
+      const existing = new Set(qsos.map(q => q.callsign + '|' + q.qsoDate + '|' + q.qsoTime));
+      let count = 0, skipped = 0;
+      for (let row of rows) {
+        if (row.length < 3) continue;
+        // レコード番号付きで出力された場合は1列ずらす
+        if (/^\d+$/.test((row[0] || '').trim()) && /[A-Za-z]/.test(row[1] || '')) row = row.slice(1);
+        const callsign = normAscii(row[0] || '').trim().toUpperCase();
+        if (!callsign || !/^[A-Z0-9/]+$/.test(callsign) || !/\d/.test(callsign)) continue;
+        const qsoDate = parseHamlogDate(row[1] || '');
+        const tm = normAscii(row[2] || '').match(/(\d{1,2}):(\d{2})/);
+        const qsoTime = tm ? tm[1].padStart(2, '0') + ':' + tm[2] : '00:00';
+        const key = callsign + '|' + qsoDate + '|' + qsoTime;
+        if (existing.has(key)) { skipped++; continue; }
+        existing.add(key);
+        const fb = freqWithBand(row[5] || '');
+        qsos.push({
+          id: uid(),
+          callsign: callsign,
+          qsoDate: qsoDate,
+          qsoTime: qsoTime,
+          freq: fb.freq,
+          band: fb.band,
+          mode: normAscii(row[6] || '').trim().toUpperCase(),
+          rstSent: normAscii(row[3] || '').trim(),
+          rstRcvd: normAscii(row[4] || '').trim(),
+          opName: (row[10] || '').trim(),
+          qth: (row[11] || '').trim(),
+          myQth: '',
+          remarks: [row[12], row[13]].map(s => (s || '').trim()).filter(Boolean).join(' / ')
+        });
+        count++;
+      }
+      sortQsos();
+      save();
+      render();
+      showToast(count + ' 件を読み込みました' + (skipped > 0 ? '(重複 ' + skipped + ' 件は除外)' : ''));
+    } catch (e) {
+      showError('HAMLOG CSVの読み込みに失敗しました: ' + e.message);
+    }
+    input.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// HAMLOGの日付 "26/06/12" や "2026/06/12" を YYYY-MM-DD に変換
+function parseHamlogDate(s) {
+  const m = normAscii(s).trim().match(/^(\d{2,4})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return nowDateStr();
+  let y = parseInt(m[1], 10);
+  if (m[1].length <= 2) y = y >= 65 ? 1900 + y : 2000 + y;
+  return y + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+}
+
+// 二重引用符対応の簡易CSVパーサ
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else cur += c;
+    } else if (c === '"') {
+      inQ = true;
+    } else if (c === ',') {
+      row.push(cur); cur = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); cur = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else {
+      cur += c;
+    }
+  }
+  if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); }
+  return rows;
 }
 
 // ---------- 初期化 ----------
