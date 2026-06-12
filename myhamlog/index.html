@@ -215,7 +215,7 @@
         </div>
         <div>
           <label for="freq">周波数 (MHz)</label>
-          <input type="number" id="freq" step="any" inputmode="decimal" placeholder="7.041">
+          <input type="text" id="freq" inputmode="decimal" placeholder="7.041" autocomplete="off">
         </div>
         <div>
           <label for="band">バンド</label>
@@ -311,7 +311,7 @@
       </div>
       <div><label>日付</label><input type="date" id="e_qsoDate"></div>
       <div><label>時刻</label><input type="time" id="e_qsoTime"></div>
-      <div><label>周波数 (MHz)</label><input type="number" step="any" inputmode="decimal" id="e_freq"></div>
+      <div><label>周波数 (MHz)</label><input type="text" inputmode="decimal" id="e_freq" autocomplete="off"></div>
       <div>
         <label>バンド</label>
         <select id="e_band">
@@ -375,6 +375,14 @@ function nowTimeStr() {
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
+// 全角数字・句読点を半角に直し、数字と小数点以外を取り除く
+function normFreq(s) {
+  return String(s ?? '')
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。、，,]/g, '.')
+    .replace(/[^0-9.]/g, '');
+}
+
 function bandFromFreq(f) {
   f = parseFloat(f);
   if (isNaN(f)) return '';
@@ -422,11 +430,17 @@ function resetFormDateTime() {
   document.getElementById('qsoTime').value = nowTimeStr();
 }
 
-// 周波数入力でバンド自動選択
-document.getElementById('freq').addEventListener('input', function() {
-  const b = bandFromFreq(this.value);
-  if (b) document.getElementById('band').value = b;
-});
+// 周波数入力: 全角を半角に直し、バンドを自動選択
+function attachFreqHandler(freqId, bandId) {
+  document.getElementById(freqId).addEventListener('input', function() {
+    const norm = normFreq(this.value);
+    if (norm !== this.value) this.value = norm;
+    const b = bandFromFreq(norm);
+    if (b) document.getElementById(bandId).value = b;
+  });
+}
+attachFreqHandler('freq', 'band');
+attachFreqHandler('e_freq', 'e_band');
 
 // 重複交信チェック(同一コールサイン・同一バンド・同一モードの過去交信を表示)
 document.getElementById('callsign').addEventListener('input', function() {
@@ -445,7 +459,7 @@ document.getElementById('callsign').addEventListener('input', function() {
 
 form.addEventListener('submit', function(e) {
   e.preventDefault();
-  const freq = document.getElementById('freq').value;
+  const freq = normFreq(document.getElementById('freq').value);
   const qso = {
     id: uid(),
     callsign: document.getElementById('callsign').value.trim().toUpperCase(),
@@ -546,7 +560,7 @@ function saveEdit() {
   q.callsign = document.getElementById('e_callsign').value.trim().toUpperCase();
   q.qsoDate = document.getElementById('e_qsoDate').value;
   q.qsoTime = document.getElementById('e_qsoTime').value;
-  q.freq = document.getElementById('e_freq').value;
+  q.freq = normFreq(document.getElementById('e_freq').value);
   q.band = document.getElementById('e_band').value || bandFromFreq(q.freq);
   q.mode = document.getElementById('e_mode').value;
   q.rstSent = document.getElementById('e_rstSent').value.trim();
