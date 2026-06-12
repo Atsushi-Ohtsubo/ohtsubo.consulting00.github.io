@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.2</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.3</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -459,12 +459,31 @@ function resetFormDateTime() {
   document.getElementById('qsoTime').value = nowTimeStr();
 }
 
+// 周波数文字列を解釈してMHz値とバンドを返す。
+// kHzで入力された場合(例: 7041)もMHzに換算して判定する
+function freqWithBand(s) {
+  let v = normFreq(s);
+  if (!v) return { freq: '', band: '' };
+  let f = parseFloat(v);
+  if (isNaN(f)) return { freq: v, band: '' };
+  let b = bandFromFreq(f);
+  if (!b) {
+    const b2 = bandFromFreq(f / 1000);
+    if (b2) {
+      f = f / 1000;
+      v = String(Math.round(f * 10000) / 10000);
+      b = b2;
+    }
+  }
+  return { freq: v, band: b };
+}
+
 // 周波数入力: 全角を半角に直し、バンドを自動選択
 function attachFreqHandler(freqId, bandId) {
   document.getElementById(freqId).addEventListener('input', function() {
     const norm = normFreq(this.value);
     if (norm !== this.value) this.value = norm;
-    const b = bandFromFreq(norm);
+    const b = freqWithBand(norm).band;
     if (b) document.getElementById(bandId).value = b;
   });
 }
@@ -489,14 +508,15 @@ document.getElementById('callsign').addEventListener('input', function() {
 form.addEventListener('submit', function(e) {
   e.preventDefault();
   try {
-  const freq = normFreq(document.getElementById('freq').value);
+  const fb = freqWithBand(document.getElementById('freq').value);
+  const freq = fb.freq;
   const qso = {
     id: uid(),
     callsign: normAscii(document.getElementById('callsign').value).trim().toUpperCase(),
     qsoDate: document.getElementById('qsoDate').value,
     qsoTime: document.getElementById('qsoTime').value,
     freq: freq,
-    band: document.getElementById('band').value || bandFromFreq(freq),
+    band: document.getElementById('band').value || fb.band,
     mode: document.getElementById('mode').value,
     rstSent: document.getElementById('rstSent').value.trim(),
     rstRcvd: document.getElementById('rstRcvd').value.trim(),
@@ -593,8 +613,9 @@ function saveEdit() {
   q.callsign = normAscii(document.getElementById('e_callsign').value).trim().toUpperCase();
   q.qsoDate = document.getElementById('e_qsoDate').value;
   q.qsoTime = document.getElementById('e_qsoTime').value;
-  q.freq = normFreq(document.getElementById('e_freq').value);
-  q.band = document.getElementById('e_band').value || bandFromFreq(q.freq);
+  const efb = freqWithBand(document.getElementById('e_freq').value);
+  q.freq = efb.freq;
+  q.band = document.getElementById('e_band').value || efb.band;
   q.mode = document.getElementById('e_mode').value;
   q.rstSent = document.getElementById('e_rstSent').value.trim();
   q.rstRcvd = document.getElementById('e_rstRcvd').value.trim();
