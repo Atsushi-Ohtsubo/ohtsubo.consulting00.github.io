@@ -360,8 +360,28 @@ function load() {
   catch (e) { qsos = []; }
 }
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(qsos));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(qsos));
+  } catch (e) {
+    showError('データを保存できませんでした。プライベートブラウズ中は保存できないことがあります。通常モードのSafariでお試しください。(' + e.message + ')');
+  }
 }
+
+// エラーを画面上部に表示(iPhoneでの不具合調査用)
+function showError(msg) {
+  let el = document.getElementById('errBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'errBanner';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#d04040;color:#fff;padding:10px 14px;font-size:13px;z-index:999;word-break:break-all;';
+    el.addEventListener('click', function() { el.remove(); });
+    document.body.appendChild(el);
+  }
+  el.textContent = msg + ' (この表示はタップで閉じられます)';
+}
+window.addEventListener('error', function(ev) {
+  showError('エラーが発生しました: ' + (ev.message || '不明なエラー'));
+});
 
 // ---------- ユーティリティ ----------
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -373,6 +393,13 @@ function nowDateStr() {
 function nowTimeStr() {
   const d = new Date();
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+// 全角英数字を半角に直す(コールサイン用)
+function normAscii(s) {
+  return String(s == null ? '' : s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ');
 }
 
 // 全角数字・句読点を半角に直し、数字と小数点以外を取り除く
@@ -444,7 +471,7 @@ attachFreqHandler('e_freq', 'e_band');
 
 // 重複交信チェック(同一コールサイン・同一バンド・同一モードの過去交信を表示)
 document.getElementById('callsign').addEventListener('input', function() {
-  const call = this.value.trim().toUpperCase();
+  const call = normAscii(this.value).trim().toUpperCase();
   const warn = document.getElementById('dupWarn');
   if (call.length < 3) { warn.style.display = 'none'; return; }
   const past = qsos.filter(q => q.callsign === call);
@@ -459,10 +486,11 @@ document.getElementById('callsign').addEventListener('input', function() {
 
 form.addEventListener('submit', function(e) {
   e.preventDefault();
+  try {
   const freq = normFreq(document.getElementById('freq').value);
   const qso = {
     id: uid(),
-    callsign: document.getElementById('callsign').value.trim().toUpperCase(),
+    callsign: normAscii(document.getElementById('callsign').value).trim().toUpperCase(),
     qsoDate: document.getElementById('qsoDate').value,
     qsoTime: document.getElementById('qsoTime').value,
     freq: freq,
@@ -486,6 +514,9 @@ form.addEventListener('submit', function(e) {
   resetFormDateTime();
   showToast(`${qso.callsign} を記録しました`);
   document.getElementById('callsign').focus();
+  } catch (err) {
+    showError('記録できませんでした: ' + err.message);
+  }
 });
 
 function sortQsos() {
@@ -557,7 +588,7 @@ function closeModal() {
 function saveEdit() {
   const q = qsos.find(x => x.id === editingId);
   if (!q) return closeModal();
-  q.callsign = document.getElementById('e_callsign').value.trim().toUpperCase();
+  q.callsign = normAscii(document.getElementById('e_callsign').value).trim().toUpperCase();
   q.qsoDate = document.getElementById('e_qsoDate').value;
   q.qsoTime = document.getElementById('e_qsoTime').value;
   q.freq = normFreq(document.getElementById('e_freq').value);
