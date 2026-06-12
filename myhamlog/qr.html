@@ -16,14 +16,15 @@
 <body>
   <div class="box">
     <h1>📻 MyHamLog</h1>
-    <p>iPhoneのカメラをかざして読み取ってください</p>
+    <p>iPhoneのカメラをかざして読み取ってください<br>(常に最新バージョンが開きます)</p>
     <div id="qrcode"></div>
     <div class="url">https://atsushi-ohtsubo.github.io/ohtsubo.consulting00.github.io/myhamlog/</div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script>
+    // 日付入りURLにすることでキャッシュ(古い版の表示)を回避する
     new QRCode(document.getElementById('qrcode'), {
-      text: 'https://atsushi-ohtsubo.github.io/ohtsubo.consulting00.github.io/myhamlog/',
+      text: 'https://atsushi-ohtsubo.github.io/ohtsubo.consulting00.github.io/myhamlog/?r=' + new Date().toISOString().slice(0,16).replace(/[-:T]/g,''),
       width: 280,
       height: 280,
       correctLevel: QRCode.CorrectLevel.M
