@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>MyHamLog - 交信ログ</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --primary: #1a6dcc;
+    --primary-dark: #14559e;
+    --accent: #e8f1fc;
+    --text: #222;
+    --muted: #777;
+    --border: #dde3ea;
+    --danger: #d04040;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 80px;
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    padding: 14px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+  header .qso-count { font-size: 12px; opacity: .9; }
+  main { max-width: 720px; margin: 0 auto; padding: 12px; }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .card h2 { font-size: 15px; margin-bottom: 10px; color: var(--primary-dark); }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; font-weight: 600; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  input#callsign { text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+
+  .btn {
+    display: inline-block;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .btn:active { opacity: .7; }
+  .btn-primary { background: var(--primary); color: #fff; width: 100%; margin-top: 10px; }
+  .btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--primary-dark);
+    border: 1px solid var(--border);
+  }
+  .btn-danger-text { background: none; color: var(--danger); border: none; font-size: 13px; padding: 6px; }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .toolbar input[type="search"] { flex: 1; min-width: 150px; }
+
+  .qso-item {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    cursor: pointer;
+  }
+  .qso-item .row1 { display: flex; justify-content: space-between; align-items: baseline; }
+  .qso-item .call { font-size: 18px; font-weight: 800; color: var(--primary-dark); letter-spacing: 1px; }
+  .qso-item .datetime { font-size: 12px; color: var(--muted); }
+  .qso-item .row2 { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-size: 13px; color: #444; }
+  .qso-item .tag {
+    background: var(--accent);
+    color: var(--primary-dark);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .qso-item .remarks { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .dup-warn {
+    background: #fff6e0;
+    border: 1px solid #f0d590;
+    color: #8a6d1a;
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-top: 8px;
+    display: none;
+  }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+
+  /* 編集モーダル */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--card);
+    width: 100%;
+    max-width: 720px;
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 16px;
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 12px; color: var(--primary-dark); }
+  .modal .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .modal .modal-actions .btn { flex: 1; }
+  .btn-cancel { background: #e7eaef; color: #444; }
+  .btn-delete { background: var(--danger); color: #fff; }
+
+  .io-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .io-row .btn-small { flex: 1; text-align: center; min-width: 100px; }
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: #444; }
+  .stats-row b { color: var(--primary-dark); }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+    z-index: 300;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (min-width: 600px) {
+    .form-grid { grid-template-columns: repeat(4, 1fr); }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-grid .half { grid-column: span 2; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📻 MyHamLog</h1>
+  <div class="qso-count" id="qsoCount">0 QSO</div>
+</header>
+
+<main>
+  <!-- 入力フォーム -->
+  <div class="card">
+    <h2>新規交信を記録</h2>
+    <form id="qsoForm">
+      <div class="form-grid">
+        <div class="half full">
+          <label for="callsign">コールサイン *</label>
+          <input type="text" id="callsign" placeholder="JA1XXX" autocomplete="off" autocapitalize="characters" required>
+        </div>
+        <div>
+          <label for="qsoDate">日付</label>
+          <input type="date" id="qsoDate" required>
+        </div>
+        <div>
+          <label for="qsoTime">時刻 (JST)</label>
+          <input type="time" id="qsoTime" required>
+        </div>
+        <div>
+          <label for="freq">周波数 (MHz)</label>
+          <input type="number" id="freq" step="any" inputmode="decimal" placeholder="7.041">
+        </div>
+        <div>
+          <label for="band">バンド</label>
+          <select id="band">
+            <option value="">自動</option>
+            <option>1.9MHz</option><option>3.5MHz</option><option>7MHz</option>
+            <option>10MHz</option><option>14MHz</option><option>18MHz</option>
+            <option>21MHz</option><option>24MHz</option><option>28MHz</option>
+            <option>50MHz</option><option>144MHz</option><option>430MHz</option>
+            <option>1200MHz</option><option>2400MHz</option>
+          </select>
+        </div>
+        <div>
+          <label for="mode">モード</label>
+          <select id="mode">
+            <option>SSB</option><option>CW</option><option>FM</option><option>AM</option>
+            <option>FT8</option><option>FT4</option><option>RTTY</option><option>DSTAR</option>
+            <option>C4FM</option><option>その他</option>
+          </select>
+        </div>
+        <div>
+          <label for="rstSent">RST 送信</label>
+          <input type="text" id="rstSent" placeholder="59" autocomplete="off">
+        </div>
+        <div>
+          <label for="rstRcvd">RST 受信</label>
+          <input type="text" id="rstRcvd" placeholder="59" autocomplete="off">
+        </div>
+        <div>
+          <label for="opName">相手局オペレータ名</label>
+          <input type="text" id="opName" autocomplete="off">
+        </div>
+        <div class="half full">
+          <label for="qth">QTH (運用地)</label>
+          <input type="text" id="qth" placeholder="東京都港区" autocomplete="off">
+        </div>
+        <div class="half full">
+          <label for="myQth">自局移動地</label>
+          <input type="text" id="myQth" placeholder="固定 / ○○山移動 など" autocomplete="off">
+        </div>
+        <div class="full">
+          <label for="remarks">備考</label>
+          <input type="text" id="remarks" placeholder="1st QSO / QSL via JARL など" autocomplete="off">
+        </div>
+      </div>
+      <div class="dup-warn" id="dupWarn"></div>
+      <button type="submit" class="btn btn-primary">交信を記録する</button>
+    </form>
+  </div>
+
+  <!-- 統計 -->
+  <div class="card">
+    <div class="stats-row">
+      <span>総交信数: <b id="statTotal">0</b></span>
+      <span>ユニーク局数: <b id="statUnique">0</b></span>
+      <span>今日: <b id="statToday">0</b></span>
+    </div>
+  </div>
+
+  <!-- ログ一覧 -->
+  <div class="card">
+    <h2>交信ログ</h2>
+    <div class="toolbar">
+      <input type="search" id="searchBox" placeholder="コールサイン・QTH・備考で検索">
+    </div>
+    <div id="logList"></div>
+  </div>
+
+  <!-- データ入出力 -->
+  <div class="card">
+    <h2>データの保存・読み込み</h2>
+    <div class="io-row">
+      <button class="btn btn-small" onclick="exportADIF()">ADIF書き出し</button>
+      <button class="btn btn-small" onclick="exportCSV()">CSV書き出し</button>
+      <button class="btn btn-small" onclick="document.getElementById('adifFile').click()">ADIF読み込み</button>
+    </div>
+    <input type="file" id="adifFile" accept=".adi,.adif,.txt" style="display:none" onchange="importADIF(this)">
+    <p style="font-size:11px;color:var(--muted);margin-top:8px;">
+      データはこの端末のブラウザ内に保存されます。機種変更前にADIFで書き出してバックアップしてください。
+      ADIFはTurbo HAMLOGやAirHamLogに取り込めます。
+    </p>
+  </div>
+</main>
+
+<!-- 編集モーダル -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h2>交信記録の編集</h2>
+    <div class="form-grid">
+      <div class="half full">
+        <label>コールサイン</label>
+        <input type="text" id="e_callsign" autocapitalize="characters" style="text-transform:uppercase;font-weight:700;">
+      </div>
+      <div><label>日付</label><input type="date" id="e_qsoDate"></div>
+      <div><label>時刻</label><input type="time" id="e_qsoTime"></div>
+      <div><label>周波数 (MHz)</label><input type="number" step="any" inputmode="decimal" id="e_freq"></div>
+      <div>
+        <label>バンド</label>
+        <select id="e_band">
+          <option value="">自動</option>
+          <option>1.9MHz</option><option>3.5MHz</option><option>7MHz</option>
+          <option>10MHz</option><option>14MHz</option><option>18MHz</option>
+          <option>21MHz</option><option>24MHz</option><option>28MHz</option>
+          <option>50MHz</option><option>144MHz</option><option>430MHz</option>
+          <option>1200MHz</option><option>2400MHz</option>
+        </select>
+      </div>
+      <div>
+        <label>モード</label>
+        <select id="e_mode">
+          <option>SSB</option><option>CW</option><option>FM</option><option>AM</option>
+          <option>FT8</option><option>FT4</option><option>RTTY</option><option>DSTAR</option>
+          <option>C4FM</option><option>その他</option>
+        </select>
+      </div>
+      <div><label>RST 送信</label><input type="text" id="e_rstSent"></div>
+      <div><label>RST 受信</label><input type="text" id="e_rstRcvd"></div>
+      <div><label>オペレータ名</label><input type="text" id="e_opName"></div>
+      <div class="half full"><label>QTH</label><input type="text" id="e_qth"></div>
+      <div class="half full"><label>自局移動地</label><input type="text" id="e_myQth"></div>
+      <div class="full"><label>備考</label><input type="text" id="e_remarks"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-delete" onclick="deleteQso()">削除</button>
+      <button class="btn btn-primary" style="margin-top:0" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const STORAGE_KEY = 'myhamlog_qsos_v1';
+let qsos = [];
+let editingId = null;
+
+// ---------- 永続化 ----------
+function load() {
+  try { qsos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch (e) { qsos = []; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(qsos));
+}
+
+// ---------- ユーティリティ ----------
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+function nowDateStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function nowTimeStr() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function bandFromFreq(f) {
+  f = parseFloat(f);
+  if (isNaN(f)) return '';
+  if (f >= 1.8 && f < 2.0) return '1.9MHz';
+  if (f >= 3.5 && f < 3.9) return '3.5MHz';
+  if (f >= 7.0 && f < 7.3) return '7MHz';
+  if (f >= 10.0 && f < 10.2) return '10MHz';
+  if (f >= 14.0 && f < 14.4) return '14MHz';
+  if (f >= 18.0 && f < 18.2) return '18MHz';
+  if (f >= 21.0 && f < 21.5) return '21MHz';
+  if (f >= 24.8 && f < 25.0) return '24MHz';
+  if (f >= 28.0 && f < 29.8) return '28MHz';
+  if (f >= 50 && f < 54) return '50MHz';
+  if (f >= 144 && f < 146) return '144MHz';
+  if (f >= 430 && f < 440) return '430MHz';
+  if (f >= 1200 && f < 1300) return '1200MHz';
+  if (f >= 2400 && f < 2500) return '2400MHz';
+  return '';
+}
+
+// ADIF用バンド名 (例: 7MHz -> 40m)
+const ADIF_BAND = {
+  '1.9MHz':'160m','3.5MHz':'80m','7MHz':'40m','10MHz':'30m','14MHz':'20m',
+  '18MHz':'17m','21MHz':'15m','24MHz':'12m','28MHz':'10m','50MHz':'6m',
+  '144MHz':'2m','430MHz':'70cm','1200MHz':'23cm','2400MHz':'13cm'
+};
+const ADIF_BAND_REV = Object.fromEntries(Object.entries(ADIF_BAND).map(([k,v]) => [v.toLowerCase(), k]));
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ---------- 入力フォーム ----------
+const form = document.getElementById('qsoForm');
+
+function resetFormDateTime() {
+  document.getElementById('qsoDate').value = nowDateStr();
+  document.getElementById('qsoTime').value = nowTimeStr();
+}
+
+// 周波数入力でバンド自動選択
+document.getElementById('freq').addEventListener('input', function() {
+  const b = bandFromFreq(this.value);
+  if (b) document.getElementById('band').value = b;
+});
+
+// 重複交信チェック(同一コールサイン・同一バンド・同一モードの過去交信を表示)
+document.getElementById('callsign').addEventListener('input', function() {
+  const call = this.value.trim().toUpperCase();
+  const warn = document.getElementById('dupWarn');
+  if (call.length < 3) { warn.style.display = 'none'; return; }
+  const past = qsos.filter(q => q.callsign === call);
+  if (past.length > 0) {
+    const last = past[0];
+    warn.textContent = `⚠ ${call} とは過去 ${past.length} 回交信済み(最終: ${last.qsoDate} ${last.band || ''} ${last.mode || ''})`;
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+});
+
+form.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const freq = document.getElementById('freq').value;
+  const qso = {
+    id: uid(),
+    callsign: document.getElementById('callsign').value.trim().toUpperCase(),
+    qsoDate: document.getElementById('qsoDate').value,
+    qsoTime: document.getElementById('qsoTime').value,
+    freq: freq,
+    band: document.getElementById('band').value || bandFromFreq(freq),
+    mode: document.getElementById('mode').value,
+    rstSent: document.getElementById('rstSent').value.trim(),
+    rstRcvd: document.getElementById('rstRcvd').value.trim(),
+    opName: document.getElementById('opName').value.trim(),
+    qth: document.getElementById('qth').value.trim(),
+    myQth: document.getElementById('myQth').value.trim(),
+    remarks: document.getElementById('remarks').value.trim()
+  };
+  if (!qso.callsign) return;
+  qsos.unshift(qso);
+  sortQsos();
+  save();
+  render();
+  // コールサイン等をクリア(日時・周波数・モードは連続入力のため保持)
+  ['callsign','rstSent','rstRcvd','opName','qth','remarks'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('dupWarn').style.display = 'none';
+  resetFormDateTime();
+  showToast(`${qso.callsign} を記録しました`);
+  document.getElementById('callsign').focus();
+});
+
+function sortQsos() {
+  qsos.sort((a, b) => (b.qsoDate + b.qsoTime).localeCompare(a.qsoDate + a.qsoTime));
+}
+
+// ---------- 一覧表示 ----------
+function render() {
+  const search = document.getElementById('searchBox').value.trim().toUpperCase();
+  const list = document.getElementById('logList');
+  let filtered = qsos;
+  if (search) {
+    filtered = qsos.filter(q =>
+      (q.callsign + ' ' + (q.qth||'') + ' ' + (q.remarks||'') + ' ' + (q.opName||'')).toUpperCase().includes(search)
+    );
+  }
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">' + (qsos.length === 0 ? 'まだ交信記録がありません。<br>上のフォームから最初のQSOを記録しましょう!' : '検索条件に一致する記録がありません') + '</div>';
+  } else {
+    list.innerHTML = filtered.map(q => `
+      <div class="qso-item" onclick="openEdit('${q.id}')">
+        <div class="row1">
+          <span class="call">${esc(q.callsign)}</span>
+          <span class="datetime">${esc(q.qsoDate)} ${esc(q.qsoTime)}</span>
+        </div>
+        <div class="row2">
+          ${q.band ? `<span class="tag">${esc(q.band)}</span>` : ''}
+          ${q.mode ? `<span class="tag">${esc(q.mode)}</span>` : ''}
+          ${q.freq ? `<span>${esc(q.freq)}MHz</span>` : ''}
+          ${(q.rstSent || q.rstRcvd) ? `<span>RST ${esc(q.rstSent||'-')}/${esc(q.rstRcvd||'-')}</span>` : ''}
+          ${q.opName ? `<span>${esc(q.opName)}</span>` : ''}
+          ${q.qth ? `<span>📍${esc(q.qth)}</span>` : ''}
+        </div>
+        ${q.remarks ? `<div class="remarks">${esc(q.remarks)}</div>` : ''}
+      </div>`).join('');
+  }
+  // 統計
+  document.getElementById('statTotal').textContent = qsos.length;
+  document.getElementById('statUnique').textContent = new Set(qsos.map(q => q.callsign)).size;
+  document.getElementById('statToday').textContent = qsos.filter(q => q.qsoDate === nowDateStr()).length;
+  document.getElementById('qsoCount').textContent = qsos.length + ' QSO';
+}
+
+document.getElementById('searchBox').addEventListener('input', render);
+
+// ---------- 編集 ----------
+function openEdit(id) {
+  const q = qsos.find(x => x.id === id);
+  if (!q) return;
+  editingId = id;
+  document.getElementById('e_callsign').value = q.callsign;
+  document.getElementById('e_qsoDate').value = q.qsoDate;
+  document.getElementById('e_qsoTime').value = q.qsoTime;
+  document.getElementById('e_freq').value = q.freq || '';
+  document.getElementById('e_band').value = q.band || '';
+  document.getElementById('e_mode').value = q.mode || 'SSB';
+  document.getElementById('e_rstSent').value = q.rstSent || '';
+  document.getElementById('e_rstRcvd').value = q.rstRcvd || '';
+  document.getElementById('e_opName').value = q.opName || '';
+  document.getElementById('e_qth').value = q.qth || '';
+  document.getElementById('e_myQth').value = q.myQth || '';
+  document.getElementById('e_remarks').value = q.remarks || '';
+  document.getElementById('modalBg').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalBg').classList.remove('show');
+  editingId = null;
+}
+function saveEdit() {
+  const q = qsos.find(x => x.id === editingId);
+  if (!q) return closeModal();
+  q.callsign = document.getElementById('e_callsign').value.trim().toUpperCase();
+  q.qsoDate = document.getElementById('e_qsoDate').value;
+  q.qsoTime = document.getElementById('e_qsoTime').value;
+  q.freq = document.getElementById('e_freq').value;
+  q.band = document.getElementById('e_band').value || bandFromFreq(q.freq);
+  q.mode = document.getElementById('e_mode').value;
+  q.rstSent = document.getElementById('e_rstSent').value.trim();
+  q.rstRcvd = document.getElementById('e_rstRcvd').value.trim();
+  q.opName = document.getElementById('e_opName').value.trim();
+  q.qth = document.getElementById('e_qth').value.trim();
+  q.myQth = document.getElementById('e_myQth').value.trim();
+  q.remarks = document.getElementById('e_remarks').value.trim();
+  sortQsos();
+  save();
+  render();
+  closeModal();
+  showToast('保存しました');
+}
+function deleteQso() {
+  if (!confirm('この交信記録を削除しますか?')) return;
+  qsos = qsos.filter(x => x.id !== editingId);
+  save();
+  render();
+  closeModal();
+  showToast('削除しました');
+}
+
+// ---------- ADIF / CSV ----------
+function adifField(name, value) {
+  value = String(value ?? '');
+  if (!value) return '';
+  // バイト長で指定 (マルチバイト対応)
+  const bytes = new TextEncoder().encode(value).length;
+  return `<${name}:${bytes}>${value}`;
+}
+
+function exportADIF() {
+  if (qsos.length === 0) return showToast('記録がありません');
+  let out = 'MyHamLog ADIF Export\n<ADIF_VER:5>3.1.4\n<PROGRAMID:8>MyHamLog\n<EOH>\n';
+  for (const q of qsos) {
+    out += adifField('CALL', q.callsign);
+    out += adifField('QSO_DATE', (q.qsoDate||'').replace(/-/g, ''));
+    out += adifField('TIME_ON', (q.qsoTime||'').replace(/:/g, ''));
+    out += adifField('BAND', ADIF_BAND[q.band] || '');
+    out += adifField('FREQ', q.freq);
+    out += adifField('MODE', q.mode === 'その他' ? '' : q.mode);
+    out += adifField('RST_SENT', q.rstSent);
+    out += adifField('RST_RCVD', q.rstRcvd);
+    out += adifField('NAME', q.opName);
+    out += adifField('QTH', q.qth);
+    out += adifField('MY_CITY', q.myQth);
+    out += adifField('COMMENT', q.remarks);
+    out += '<EOR>\n';
+  }
+  download(out, 'myhamlog_' + nowDateStr() + '.adi', 'text/plain');
+  showToast('ADIFを書き出しました');
+}
+
+function exportCSV() {
+  if (qsos.length === 0) return showToast('記録がありません');
+  const headers = ['コールサイン','日付','時刻','周波数MHz','バンド','モード','RST送信','RST受信','オペレータ名','QTH','自局移動地','備考'];
+  const rows = qsos.map(q => [q.callsign,q.qsoDate,q.qsoTime,q.freq,q.band,q.mode,q.rstSent,q.rstRcvd,q.opName,q.qth,q.myQth,q.remarks]
+    .map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(','));
+  const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n'); // BOM付きでExcel対応
+  download(csv, 'myhamlog_' + nowDateStr() + '.csv', 'text/csv');
+  showToast('CSVを書き出しました');
+}
+
+function download(content, filename, mime) {
+  const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importADIF(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const text = reader.result;
+      // ヘッダ以降を取得
+      const body = text.toUpperCase().includes('<EOH>') ? text.slice(text.toUpperCase().indexOf('<EOH>') + 5) : text;
+      const records = body.split(/<EOR>/i);
+      let count = 0;
+      for (const rec of records) {
+        const fields = {};
+        const re = /<([A-Za-z_]+):(\d+)(?::[^>]*)?>/g;
+        let m;
+        while ((m = re.exec(rec)) !== null) {
+          const name = m[1].toUpperCase();
+          const len = parseInt(m[2], 10);
+          // バイト長指定だが簡易的に文字数で取得し、ずれは許容
+          fields[name] = rec.substr(re.lastIndex, len).trim();
+        }
+        if (!fields.CALL) continue;
+        const d = fields.QSO_DATE || '';
+        const t = fields.TIME_ON || '';
+        qsos.push({
+          id: uid(),
+          callsign: fields.CALL.toUpperCase(),
+          qsoDate: d.length === 8 ? d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8) : nowDateStr(),
+          qsoTime: t.length >= 4 ? t.slice(0,2)+':'+t.slice(2,4) : '00:00',
+          freq: fields.FREQ || '',
+          band: ADIF_BAND_REV[(fields.BAND||'').toLowerCase()] || bandFromFreq(fields.FREQ) || '',
+          mode: fields.MODE || '',
+          rstSent: fields.RST_SENT || '',
+          rstRcvd: fields.RST_RCVD || '',
+          opName: fields.NAME || '',
+          qth: fields.QTH || '',
+          myQth: fields.MY_CITY || '',
+          remarks: fields.COMMENT || fields.NOTES || ''
+        });
+        count++;
+      }
+      sortQsos();
+      save();
+      render();
+      showToast(count + ' 件を読み込みました');
+    } catch (e) {
+      showToast('読み込みに失敗しました');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ---------- 初期化 ----------
+load();
+sortQsos();
+resetFormDateTime();
+render();
+</script>
+</body>
+</html>
