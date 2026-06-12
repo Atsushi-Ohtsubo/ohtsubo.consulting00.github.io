@@ -198,7 +198,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.8</span></h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.9</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -279,6 +279,7 @@
       <span>総交信数: <b id="statTotal">0</b></span>
       <span>ユニーク局数: <b id="statUnique">0</b></span>
       <span>今日: <b id="statToday">0</b></span>
+      <span>HAMLOG未転送: <b id="statNew">0</b></span>
     </div>
   </div>
 
@@ -590,6 +591,7 @@ function render() {
   document.getElementById('statTotal').textContent = qsos.length;
   document.getElementById('statUnique').textContent = new Set(qsos.map(q => q.callsign)).size;
   document.getElementById('statToday').textContent = qsos.filter(q => q.qsoDate === nowDateStr()).length;
+  document.getElementById('statNew').textContent = qsos.filter(q => !q.inHamlog).length;
   document.getElementById('qsoCount').textContent = qsos.length + ' QSO';
 }
 
@@ -683,6 +685,7 @@ function exportADIF() {
     out += adifField('QTH', q.qth);
     out += adifField('MY_CITY', q.myQth);
     out += adifField('COMMENT', q.remarks);
+    out += adifField('APP_MYHAMLOG_INHAMLOG', q.inHamlog ? 'Y' : '');
     out += '<EOR>\n';
   }
   download(out, 'myhamlog_' + nowDateStr() + '.adi', 'text/plain');
@@ -754,7 +757,8 @@ function importADIF(input) {
           opName: fields.NAME || '',
           qth: fields.QTH || '',
           myQth: fields.MY_CITY || '',
-          remarks: fields.COMMENT || fields.NOTES || ''
+          remarks: fields.COMMENT || fields.NOTES || '',
+          inHamlog: fields.APP_MYHAMLOG_INHAMLOG === 'Y'
         });
         count++;
       }
@@ -783,7 +787,7 @@ function importHamlogCSV(input) {
       try { text = new TextDecoder('utf-8', { fatal: true }).decode(reader.result); }
       catch (e) { text = new TextDecoder('shift_jis').decode(reader.result); }
       const rows = parseCSV(text);
-      const existing = new Set(qsos.map(q => q.callsign + '|' + q.qsoDate + '|' + q.qsoTime));
+      const existing = new Map(qsos.map(q => [q.callsign + '|' + q.qsoDate + '|' + q.qsoTime, q]));
       let count = 0, skipped = 0;
       for (let row of rows) {
         if (row.length < 3) continue;
@@ -795,10 +799,14 @@ function importHamlogCSV(input) {
         const tm = normAscii(row[2] || '').match(/(\d{1,2}):(\d{2})/);
         const qsoTime = tm ? tm[1].padStart(2, '0') + ':' + tm[2] : '00:00';
         const key = callsign + '|' + qsoDate + '|' + qsoTime;
-        if (existing.has(key)) { skipped++; continue; }
-        existing.add(key);
+        if (existing.has(key)) {
+          // 既存記録もHAMLOG側にあると分かったので転送済みにする
+          existing.get(key).inHamlog = true;
+          skipped++;
+          continue;
+        }
         const fb = freqWithBand(row[5] || '');
-        qsos.push({
+        const rec = {
           id: uid(),
           callsign: callsign,
           qsoDate: qsoDate,
@@ -811,8 +819,11 @@ function importHamlogCSV(input) {
           opName: (row[10] || '').trim(),
           qth: (row[11] || '').trim(),
           myQth: '',
-          remarks: [row[12], row[13]].map(s => (s || '').trim()).filter(Boolean).join(' / ')
-        });
+          remarks: [row[12], row[13]].map(s => (s || '').trim()).filter(Boolean).join(' / '),
+          inHamlog: true // HAMLOGから来たデータなのでHAMLOG側に存在する
+        };
+        qsos.push(rec);
+        existing.set(key, rec);
         count++;
       }
       sortQsos();
@@ -830,12 +841,12 @@ function importHamlogCSV(input) {
 // ---------- Turbo HAMLOG CSV書き出し ----------
 // HAMLOGの「データのインポート」が読める形式
 // (列順: Call, Date, Time, His, My, Freq, Mode, Code, GL, QSL, Name, QTH, Remarks1, Remarks2 / Shift-JIS)
-function buildHamlogCSV() {
+function buildHamlogCSV(target) {
   const escCsv = function(v) {
     v = String(v == null ? '' : v);
     return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   };
-  const lines = qsos.map(function(q) {
+  const lines = target.map(function(q) {
     const d = (q.qsoDate || '').split('-'); // YYYY-MM-DD
     const dateStr = d.length === 3 ? d[0].slice(2) + '/' + d[1] + '/' + d[2] : '';
     const timeStr = q.qsoTime ? q.qsoTime + 'J' : '';
@@ -847,12 +858,23 @@ function buildHamlogCSV() {
 
 function exportHamlogCSV() {
   if (qsos.length === 0) return showToast('記録がありません');
+  // HAMLOG未転送(=HAMLOG取り込み由来でも転送済みでもない)記録だけを既定で書き出す
+  const newOnes = qsos.filter(q => !q.inHamlog);
+  let target;
+  if (newOnes.length === 0) {
+    if (!confirm('HAMLOG未転送の記録はありません。\n全 ' + qsos.length + ' 件を書き出しますか?')) return;
+    target = qsos;
+  } else if (newOnes.length < qsos.length) {
+    target = confirm('HAMLOGにまだ入れていない ' + newOnes.length + ' 件だけを書き出しますか?\n\n[OK] = 新規 ' + newOnes.length + ' 件のみ(おすすめ)\n[キャンセル] = 全 ' + qsos.length + ' 件') ? newOnes : qsos;
+  } else {
+    target = qsos;
+  }
   loadSjisLib(function(ok) {
     if (!ok) {
       showError('文字コード変換ライブラリを読み込めませんでした。インターネット接続を確認してもう一度お試しください。');
       return;
     }
-    const text = buildHamlogCSV();
+    const text = buildHamlogCSV(target);
     const sjis = Encoding.convert(Encoding.stringToCode(text), 'SJIS', 'UNICODE');
     const blob = new Blob([new Uint8Array(sjis)], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -860,7 +882,11 @@ function exportHamlogCSV() {
     a.download = 'myhamlog_for_hamlog_' + nowDateStr() + '.csv';
     a.click();
     URL.revokeObjectURL(a.href);
-    showToast('HAMLOG形式CSVを書き出しました');
+    // 書き出した記録は転送済みとして記憶する
+    target.forEach(q => { q.inHamlog = true; });
+    save();
+    render();
+    showToast(target.length + ' 件をHAMLOG形式で書き出しました');
   });
 }
 
