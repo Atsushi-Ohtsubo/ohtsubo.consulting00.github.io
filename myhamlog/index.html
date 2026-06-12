@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1>📻 MyHamLog</h1>
+  <h1>📻 MyHamLog <span style="font-size:11px;font-weight:400;opacity:.8;">v1.2</span></h1>
   <div class="qso-count" id="qsoCount">0 QSO</div>
 </header>
 
@@ -340,8 +340,10 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeModal()">キャンセル</button>
-      <button class="btn btn-delete" onclick="deleteQso()">削除</button>
       <button class="btn btn-primary" style="margin-top:0" onclick="saveEdit()">保存</button>
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn btn-danger-text" onclick="deleteQso()">この記録を削除する</button>
     </div>
   </div>
 </div>
@@ -607,7 +609,9 @@ function saveEdit() {
   showToast('保存しました');
 }
 function deleteQso() {
-  if (!confirm('この交信記録を削除しますか?')) return;
+  const q = qsos.find(x => x.id === editingId);
+  const name = q ? q.callsign + ' との交信記録' : 'この交信記録';
+  if (!confirm(name + 'を削除しますか?\nこの操作は取り消せません。')) return;
   qsos = qsos.filter(x => x.id !== editingId);
   save();
   render();
