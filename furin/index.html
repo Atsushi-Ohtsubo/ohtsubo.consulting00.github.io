@@ -242,6 +242,7 @@
         <div class="btn-row">
           <button class="btn primary" id="testSound">♪ 試しに鳴らす</button>
         </div>
+        <p class="note">音が出ないときは、本体の音量をご確認ください。</p>
         <div class="nav-row">
           <button class="btn" data-go="1">← 模様</button>
           <button class="btn" data-go="3">完成へ →</button>
@@ -669,15 +670,43 @@ function frame(now){
 requestAnimationFrame(frame);
 
 /* ================= audio ================= */
-let ac = null, master = null, recDest = null;
+let ac = null, master = null, recDest = null, silentEl = null;
+function silentWavURI(){
+  const n = 4000; // 0.5s of silence @ 8kHz 8bit mono
+  const bytes = new Uint8Array(44 + n);
+  const dv = new DataView(bytes.buffer);
+  const tag = (o, s) => { for (let i = 0; i < 4; i++) bytes[o+i] = s.charCodeAt(i); };
+  tag(0,'RIFF'); dv.setUint32(4, 36+n, true); tag(8,'WAVE'); tag(12,'fmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+  dv.setUint32(24,8000,true); dv.setUint32(28,8000,true);
+  dv.setUint16(32,1,true); dv.setUint16(34,8,true);
+  tag(36,'data'); dv.setUint32(40,n,true);
+  bytes.fill(128, 44);
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return 'data:audio/wav;base64,' + btoa(bin);
+}
 function ensureAudio(){
   if (!ac){
     ac = new (window.AudioContext || window.webkitAudioContext)();
     master = ac.createGain(); master.gain.value = 0.9;
     master.connect(ac.destination);
   }
-  if (ac.state === 'suspended') ac.resume();
+  if (ac.state !== 'running') ac.resume().catch(() => {});
+  // iOS: keep a silent <audio> looping so the audio session switches to
+  // "playback" — otherwise the silent (manner-mode) switch mutes Web Audio
+  if (!silentEl){
+    silentEl = document.createElement('audio');
+    silentEl.setAttribute('playsinline', '');
+    silentEl.loop = true;
+    silentEl.volume = 0.001;
+    silentEl.src = silentWavURI();
+  }
+  if (silentEl.paused) silentEl.play().catch(() => {});
 }
+// iOS unlocks audio only from a real gesture (touchend/click) — catch the
+// first one anywhere on the page, keep listening in case iOS re-suspends
+['touchend', 'click'].forEach(ev =>
+  document.addEventListener(ev, () => { if (ac) ensureAudio(); }, {passive:true}));
 function ring(vel){
   if (!ac) return;
   const m = MATERIALS[state.material];
