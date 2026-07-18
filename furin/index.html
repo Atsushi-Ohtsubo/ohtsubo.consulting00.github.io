@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>風鈴工房 — じぶんの風鈴をデザインする</title>
+<style>
+  :root{
+    --font-round:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN W4","HGMaruGothicMPRO","HG丸ｺﾞｼｯｸM-PRO","UD デジタル 教科書体 NP-R","Yu Gothic","Meiryo",sans-serif;
+    --ground:#EEF4F2; --panel:#FBFDFC; --ink:#1F2B33; --sub:#5C6B72;
+    --line:#D5E0DC; --accent:#D9503F; --accent-ink:#fff;
+    --sky-top:#B7DCEC; --sky-bot:#EDF5EE; --cloud-a:0.9; --night:0;
+    --wood:#8A6A4F; --wood-dark:#6E5340; --rope:#4A3B2E;
+    --chip:#E7EEEB;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ground:#101724; --panel:#18202E; --ink:#E9EDEA; --sub:#9AA8B0;
+      --line:#2A3545; --accent:#E4705F; --accent-ink:#1A0E0B;
+      --sky-top:#0B1330; --sky-bot:#273350; --cloud-a:0.14; --night:1;
+      --wood:#5C4636; --wood-dark:#46352A; --rope:#8A7A66;
+      --chip:#222D3D;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#101724; --panel:#18202E; --ink:#E9EDEA; --sub:#9AA8B0;
+    --line:#2A3545; --accent:#E4705F; --accent-ink:#1A0E0B;
+    --sky-top:#0B1330; --sky-bot:#273350; --cloud-a:0.14; --night:1;
+    --wood:#5C4636; --wood-dark:#46352A; --rope:#8A7A66;
+    --chip:#222D3D;
+  }
+  :root[data-theme="light"]{
+    --ground:#EEF4F2; --panel:#FBFDFC; --ink:#1F2B33; --sub:#5C6B72;
+    --line:#D5E0DC; --accent:#D9503F; --accent-ink:#fff;
+    --sky-top:#B7DCEC; --sky-bot:#EDF5EE; --cloud-a:0.9; --night:0;
+    --wood:#8A6A4F; --wood-dark:#6E5340; --rope:#4A3B2E;
+    --chip:#E7EEEB;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:var(--font-round);
+    font-size:15px; line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    max-width:1060px; margin:0 auto; padding:28px 20px 8px;
+    display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+  }
+  header h1{
+    font-family:var(--font-round);
+    font-size:30px; font-weight:600; margin:0; letter-spacing:.14em;
+    text-wrap:balance;
+  }
+  header p{margin:0; color:var(--sub); font-size:13px; letter-spacing:.08em}
+  #restartBtn{
+    margin-left:auto; align-self:center;
+    padding:8px 16px; border-radius:20px; cursor:pointer;
+    border:1px solid var(--line); background:var(--panel); color:var(--sub);
+    font-family:inherit; font-size:13px; letter-spacing:.06em;
+  }
+  #restartBtn:hover{border-color:var(--accent); color:var(--accent)}
+  main{
+    max-width:1060px; margin:0 auto; padding:12px 20px 48px;
+    display:grid; grid-template-columns:minmax(300px,460px) minmax(300px,1fr);
+    gap:24px; align-items:start;
+  }
+  @media (max-width:760px){ main{grid-template-columns:1fr} }
+
+  .stage-wrap{position:sticky; top:12px}
+  @media (max-width:760px){ .stage-wrap{position:static} }
+  #stage{
+    width:100%; aspect-ratio:3/4; display:block;
+    border-radius:6px; border:1px solid var(--line);
+    background:var(--sky-bot); touch-action:manipulation; cursor:pointer;
+  }
+  .stage-hint{margin:8px 2px 0; font-size:12px; color:var(--sub)}
+
+  nav.steps{display:flex; gap:8px; margin-bottom:16px}
+  nav.steps button{
+    flex:1; padding:10px 4px 8px; background:var(--chip); color:var(--sub);
+    border:1px solid var(--line); border-radius:4px; cursor:pointer;
+    font-family:inherit; font-size:13px; letter-spacing:.06em; line-height:1.4;
+  }
+  nav.steps button .no{
+    display:block; font-family:var(--font-round);
+    font-size:17px; letter-spacing:0;
+  }
+  nav.steps button[aria-current="step"]{
+    background:var(--ink); color:var(--ground); border-color:var(--ink);
+  }
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px;
+    padding:20px 22px 22px;
+  }
+  .panel h2{
+    font-family:var(--font-round);
+    font-size:20px; font-weight:600; margin:0 0 4px; letter-spacing:.1em;
+  }
+  .panel .lead{margin:0 0 16px; font-size:13px; color:var(--sub)}
+  .panel section{margin:18px 0 0}
+  .panel h3{
+    font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--sub);
+    margin:0 0 8px; text-transform:none;
+  }
+  .step-body{display:none}
+  .step-body.active{display:block}
+
+  .opt-row{display:flex; flex-wrap:wrap; gap:8px}
+  .opt-row button{
+    padding:8px 14px; border:1px solid var(--line); border-radius:4px;
+    background:var(--chip); color:var(--ink); cursor:pointer;
+    font-family:inherit; font-size:14px; letter-spacing:.04em;
+  }
+  .opt-row button[aria-pressed="true"]{
+    background:var(--ink); color:var(--ground); border-color:var(--ink);
+  }
+  .swatches{display:flex; flex-wrap:wrap; gap:8px}
+  .swatches button{
+    width:34px; height:34px; border-radius:50%; cursor:pointer;
+    border:2px solid var(--line); padding:0;
+  }
+  .swatches button[aria-pressed="true"]{
+    border-color:var(--ink); outline:2px solid var(--ink); outline-offset:2px;
+  }
+  label.slider{display:block; margin:10px 0 0; font-size:13px; color:var(--sub)}
+  label.slider .val{float:right; font-variant-numeric:tabular-nums; color:var(--ink)}
+  input[type=range]{width:100%; accent-color:var(--accent); margin-top:4px}
+  input[type=text]{
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:4px;
+    background:var(--ground); color:var(--ink); font-family:inherit; font-size:15px;
+  }
+  .btn{
+    padding:10px 18px; border-radius:4px; cursor:pointer; font-family:inherit;
+    font-size:14px; letter-spacing:.06em;
+    border:1px solid var(--ink); background:var(--panel); color:var(--ink);
+  }
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+  .btn:disabled{opacity:.45; cursor:default}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px}
+  .nav-row{
+    display:flex; justify-content:space-between; margin-top:22px; padding-top:14px;
+    border-top:1px solid var(--line);
+  }
+  .note{font-size:12px; color:var(--sub); margin:8px 0 0}
+  #recStatus{font-size:13px; color:var(--accent)}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+</style>
+
+<header>
+  <h1>風鈴工房</h1>
+  <p>かたち・もよう・おとを選んで、じぶんだけの夏の音色を。</p>
+  <button id="restartBtn" type="button">↺ リスタート</button>
+</header>
+
+<main>
+  <div class="stage-wrap">
+    <canvas id="stage" width="480" height="640"></canvas>
+    <p class="stage-hint" id="stageHint">風鈴をタップすると鳴ります。</p>
+  </div>
+
+  <div>
+    <nav class="steps" aria-label="制作ステップ">
+      <button data-step="0" aria-current="step"><span class="no">一</span>形</button>
+      <button data-step="1"><span class="no">二</span>模様</button>
+      <button data-step="2"><span class="no">三</span>音</button>
+      <button data-step="3"><span class="no">四</span>完成</button>
+    </nav>
+
+    <div class="panel">
+      <!-- STEP 1 -->
+      <div class="step-body active" id="step0">
+        <h2>形をつくる</h2>
+        <p class="lead">風鈴の形と、ガラスの色を選びます。</p>
+        <section>
+          <h3>かたち</h3>
+          <div class="opt-row" id="shapeRow"></div>
+        </section>
+        <section>
+          <h3>ガラスの色</h3>
+          <div class="swatches" id="glassRow"></div>
+          <label class="slider">透明感 <span class="val" id="alphaVal"></span>
+            <input type="range" id="alpha" min="20" max="85" value="55">
+          </label>
+          <label class="slider">大きさ <span class="val" id="sizeVal"></span>
+            <input type="range" id="size" min="80" max="120" value="100">
+          </label>
+        </section>
+        <div class="nav-row"><span></span><button class="btn" data-go="1">次へ　模様 →</button></div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step-body" id="step1">
+        <h2>模様をつくる</h2>
+        <p class="lead">地の柄を選び、風鈴をタップして絵柄を置きます。</p>
+        <section>
+          <h3>地の柄</h3>
+          <div class="opt-row" id="patRow"></div>
+          <div class="swatches" id="patColorRow" style="margin-top:10px"></div>
+        </section>
+        <section>
+          <h3>絵柄スタンプ — 選んで風鈴をタップ</h3>
+          <div class="opt-row" id="stampRow"></div>
+          <div class="btn-row">
+            <button class="btn" id="undoStamp">ひとつ戻す</button>
+            <button class="btn" id="clearStamp">全部消す</button>
+          </div>
+        </section>
+        <section>
+          <h3>短冊</h3>
+          <div class="swatches" id="tzColorRow"></div>
+          <label class="slider" style="margin-top:12px">短冊のことば（4文字まで）
+            <input type="text" id="tzText" maxlength="4" value="涼風">
+          </label>
+        </section>
+        <div class="nav-row">
+          <button class="btn" data-go="0">← 形</button>
+          <button class="btn" data-go="2">次へ　音 →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step-body" id="step2">
+        <h2>音をつくる</h2>
+        <p class="lead">素材で音色が変わります。高さと余韻も好みに合わせて。</p>
+        <section>
+          <h3>素材</h3>
+          <div class="opt-row" id="matRow"></div>
+        </section>
+        <section>
+          <h3>調整</h3>
+          <label class="slider">音の高さ <span class="val" id="pitchVal"></span>
+            <input type="range" id="pitch" min="70" max="150" value="100">
+          </label>
+          <label class="slider">余韻の長さ <span class="val" id="decayVal"></span>
+            <input type="range" id="decay" min="40" max="200" value="100">
+          </label>
+        </section>
+        <div class="btn-row">
+          <button class="btn primary" id="testSound">♪ 試しに鳴らす</button>
+        </div>
+        <div class="nav-row">
+          <button class="btn" data-go="1">← 模様</button>
+          <button class="btn" data-go="3">完成へ →</button>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="step-body" id="step3">
+        <h2>完成 — 風を吹かせる</h2>
+        <p class="lead">風の強さを決めて、風鈴の鳴る姿をお楽しみください。</p>
+        <section>
+          <h3>風</h3>
+          <label class="slider">風の強さ <span class="val" id="windVal"></span>
+            <input type="range" id="wind" min="10" max="100" value="45">
+          </label>
+          <div class="btn-row">
+            <button class="btn primary" id="windToggle">風を吹かせる</button>
+          </div>
+        </section>
+        <section>
+          <h3>動画にする</h3>
+          <div class="btn-row">
+            <button class="btn" id="recBtn">● 10秒 録画して保存</button>
+            <span id="recStatus"></span>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="playBtn" disabled>▶ 録画した動画を再生</button>
+          </div>
+          <video id="playVideo" controls playsinline
+                 style="display:none; width:100%; margin-top:10px; border:1px solid var(--line); border-radius:6px; background:#000"></video>
+          <p class="note">風に揺れて鳴る様子を、音つきの動画ファイルとして保存できます。保存後は再生ボタンでその場で確認できます。</p>
+        </section>
+        <div class="nav-row">
+          <button class="btn" data-go="2">← 音</button><span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+/* ================= state ================= */
+const state = {
+  step: 0,
+  shape: 'maru', size: 1.0, glass: '#4f9ca8', alpha: 0.55,
+  pattern: 'none', patColor: '#3b5ba5',
+  stamp: 'goldfish', stamps: [],
+  tzColor: '#f6f4ec', tzText: '涼風',
+  material: 'glass', pitch: 1.0, decay: 1.0,
+  wind: 0.45, blowing: false,
+};
+
+const SHAPES = [
+  ['maru','丸型（江戸風鈴）'], ['tsurigane','釣鐘型'], ['asagao','朝顔型'], ['tsutsu','筒型'],
+];
+const GLASS_COLORS = [
+  ['#4f9ca8','浅葱'], ['#3b5ba5','瑠璃'], ['#63a583','若竹'], ['#e07a68','珊瑚'],
+  ['#e8a63a','山吹'], ['#8d84b8','藤'], ['#d94f6c','紅'], ['#c9d4d2','白磁'],
+];
+const PATTERNS = [['none','無地'], ['dots','水玉'], ['stripes','横縞'], ['wave','青海波'], ['ichimatsu','市松']];
+const STAMPS = [['goldfish','金魚'], ['hanabi','花火'], ['asagao','朝顔'], ['tonbo','とんぼ']];
+const TZ_COLORS = [['#f6f4ec','白'], ['#f2cfd4','桜'], ['#bcdce0','浅葱'], ['#f2d98c','山吹'], ['#cfe3cf','若竹']];
+const MATERIALS = {
+  glass:  {label:'江戸風鈴（ガラス）', base:1800, decay:1.6,
+           parts:[[1,1,1],[2.32,.4,.7],[4.2,.15,.5]], shimmer:5, noise:.12},
+  nanbu:  {label:'南部風鈴（鉄）', base:2600, decay:5.0,
+           parts:[[1,1,1],[2.0,.3,.9],[2.98,.28,.8],[4.1,.12,.6]], shimmer:2, noise:.08},
+  brass:  {label:'真鍮', base:1150, decay:2.6,
+           parts:[[1,1,1],[2.4,.45,.8],[3.8,.22,.6],[5.4,.1,.4]], shimmer:3, noise:.1},
+  bamboo: {label:'竹', base:520, decay:0.3,
+           parts:[[1,1,1],[1.9,.55,.8],[2.8,.35,.6]], shimmer:0, noise:.5},
+};
+
+/* ================= theme ================= */
+let theme = {};
+function readTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  const v = n => cs.getPropertyValue(n).trim();
+  theme = { skyTop:v('--sky-top'), skyBot:v('--sky-bot'),
+    cloudA:parseFloat(v('--cloud-a')), night:parseFloat(v('--night')),
+    wood:v('--wood'), woodDark:v('--wood-dark'), rope:v('--rope') };
+}
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+/* ================= bell geometry ================= */
+function bellGeo(){
+  const s = state.size, sh = state.shape;
+  const p = new Path2D();
+  let mouthY, mouthR;
+  if (sh === 'maru'){
+    const r = 78*s, cy = 88*s, a = 0.72;
+    p.arc(0, cy, r, Math.PI/2 - a, Math.PI/2 + a, true);
+    const mx = r*Math.sin(a), my = cy + r*Math.cos(a);
+    p.quadraticCurveTo(0, my + 12*s, mx, my);
+    p.closePath();
+    mouthY = my; mouthR = mx;
+  } else if (sh === 'tsurigane'){
+    p.moveTo(-12*s, 0);
+    p.bezierCurveTo(-52*s, 6*s, -58*s, 58*s, -64*s, 116*s);
+    p.quadraticCurveTo(0, 128*s, 64*s, 116*s);
+    p.bezierCurveTo(58*s, 58*s, 52*s, 6*s, 12*s, 0);
+    p.closePath();
+    mouthY = 119*s; mouthR = 64*s;
+  } else if (sh === 'asagao'){
+    p.moveTo(-11*s, 0);
+    p.bezierCurveTo(-16*s, 45*s, -60*s, 80*s, -92*s, 112*s);
+    p.quadraticCurveTo(0, 126*s, 92*s, 112*s);
+    p.bezierCurveTo(60*s, 80*s, 16*s, 45*s, 11*s, 0);
+    p.closePath();
+    mouthY = 116*s; mouthR = 88*s;
+  } else { // tsutsu
+    p.moveTo(-31*s, 2*s);
+    p.lineTo(-31*s, 148*s);
+    p.quadraticCurveTo(0, 158*s, 31*s, 148*s);
+    p.lineTo(31*s, 2*s);
+    p.quadraticCurveTo(0, -6*s, -31*s, 2*s);
+    p.closePath();
+    mouthY = 151*s; mouthR = 31*s;
+  }
+  const clapLen = mouthY + 16*s;
+  const maxRel = Math.min(0.13, mouthR/clapLen*0.5);
+  return {path:p, mouthY, mouthR, clapLen, maxRel};
+}
+
+/* ================= physics ================= */
+const phys = { th:0, thv:0, tc:0, tcv:0, tz:0, tzv:0,
+  gust:0, gustTarget:0, nextGust:0, lastStrike:0, flash:0 };
+let windSignal = 0;
+
+function windAt(t, amp){
+  if (t > phys.nextGust){
+    phys.gustTarget = (Math.random()*0.9 + 0.3);
+    phys.nextGust = t + 1.5 + Math.random()*3;
+  }
+  phys.gust += (phys.gustTarget - phys.gust) * 0.02;
+  const w = 0.45 + 0.3*Math.sin(t*0.7) + 0.2*Math.sin(t*1.9 + 2) + 0.65*phys.gust*Math.sin(t*1.3+1);
+  return amp * w;
+}
+
+function stepPhysics(dt, t, geo){
+  const amp = (state.step === 3 && state.blowing) ? state.wind : 0;
+  const W = windAt(t, amp) * 4.2;
+  windSignal = W;
+  // bell (pendulum about rope top)
+  const aB = -10.9*Math.sin(phys.th) - 0.9*phys.thv + W;
+  phys.thv += aB*dt; phys.th += phys.thv*dt;
+  // clapper
+  const turb = Math.sin(t*7.3)*1.4 + Math.sin(t*13.1+2)*0.9;
+  const aC = -9.8*Math.sin(phys.tc) - 1.1*phys.tcv + W*1.35 + amp*turb*3.0 + (phys.th - phys.tc)*2.0;
+  phys.tcv += aC*dt; phys.tc += phys.tcv*dt;
+  // contact
+  const rel = phys.tc - phys.th;
+  if (Math.abs(rel) > geo.maxRel){
+    const sgn = Math.sign(rel);
+    phys.tc = phys.th + sgn*geo.maxRel;
+    const vRel = phys.tcv - phys.thv;
+    if (vRel*sgn > 0){
+      phys.tcv = phys.thv - vRel*0.45;
+      const vel = Math.abs(vRel);
+      if (vel > 0.12 && t - phys.lastStrike > 0.13){
+        phys.lastStrike = t; phys.flash = 1;
+        ring(Math.min(0.55, 0.1 + vel*0.3));
+      }
+    }
+  }
+  // tanzaku
+  const turb2 = Math.sin(t*6.3)*0.5 + Math.sin(t*11.7+2)*0.3;
+  const aT = -14*(phys.tz - phys.tc) - 2.2*phys.tzv + W*(1.1 + turb2)*0.5;
+  phys.tzv += aT*dt; phys.tz += phys.tzv*dt;
+  phys.flash *= 0.92;
+}
+
+/* ================= drawing ================= */
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const hitCtx = document.createElement('canvas').getContext('2d');
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+canvas.width = 480*DPR; canvas.height = 640*DPR;
+const PIVOT = {x:240, y:56}, ROPE_LEN = 96;
+
+const clouds = [
+  {x:60, y:120, s:1.0, v:4}, {x:300, y:200, s:0.7, v:6}, {x:180, y:330, s:0.55, v:3},
+];
+const stars = Array.from({length:40}, () => ({x:Math.random()*480, y:Math.random()*420, r:Math.random()*1.2+0.4, p:Math.random()*6}));
+let streaks = [];
+
+function drawScene(t){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  // sky
+  const g = ctx.createLinearGradient(0,0,0,640);
+  g.addColorStop(0, theme.skyTop); g.addColorStop(1, theme.skyBot);
+  ctx.fillStyle = g; ctx.fillRect(0,0,480,640);
+  // stars (night)
+  if (theme.night > 0.5){
+    for (const st of stars){
+      ctx.globalAlpha = 0.4 + 0.4*Math.sin(t*1.5 + st.p);
+      ctx.fillStyle = '#dfe8ff';
+      ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(245,240,215,0.9)';
+    ctx.beginPath(); ctx.arc(396, 96, 26, 0, 7); ctx.fill();
+    ctx.fillStyle = theme.skyTop;
+    ctx.beginPath(); ctx.arc(385, 88, 22, 0, 7); ctx.fill();
+  }
+  // clouds
+  ctx.fillStyle = `rgba(255,255,255,${theme.cloudA})`;
+  for (const c of clouds){
+    c.x += 0.01*c.v*(1 + Math.abs(windSignal));
+    if (c.x > 560) c.x = -90;
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, 46*c.s, 15*c.s, 0, 0, 7);
+    ctx.ellipse(c.x+28*c.s, c.y-9*c.s, 30*c.s, 13*c.s, 0, 0, 7);
+    ctx.ellipse(c.x-26*c.s, c.y-5*c.s, 24*c.s, 11*c.s, 0, 0, 7);
+    ctx.fill();
+  }
+  // eave (軒)
+  ctx.fillStyle = theme.woodDark; ctx.fillRect(0, 22, 480, 10);
+  ctx.fillStyle = theme.wood; ctx.fillRect(0, 32, 480, 16);
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+  for (let x = 20; x < 480; x += 52){
+    ctx.beginPath(); ctx.moveTo(x, 34); ctx.lineTo(x+30, 46); ctx.stroke();
+  }
+  // hook
+  ctx.fillStyle = theme.rope;
+  ctx.beginPath(); ctx.arc(PIVOT.x, PIVOT.y-4, 4, 0, 7); ctx.fill();
+}
+
+function drawStreaks(t, dt){
+  const amp = (state.step === 3 && state.blowing) ? state.wind : 0;
+  if (amp > 0.05 && Math.random() < amp*0.35){
+    streaks.push({x:-40, y:80 + Math.random()*420, v:120 + Math.random()*160*amp, ph:Math.random()*6, life:1});
+  }
+  ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  streaks = streaks.filter(sk => sk.life > 0);
+  for (const sk of streaks){
+    sk.x += sk.v*dt*(0.6 + Math.abs(windSignal)*0.15);
+    if (sk.x > 540) sk.life = 0;
+    ctx.strokeStyle = `rgba(255,255,255,${0.35*sk.life*Math.min(1,(sk.x+40)/120)})`;
+    ctx.beginPath();
+    ctx.moveTo(sk.x, sk.y);
+    ctx.quadraticCurveTo(sk.x+22, sk.y - 6 + 4*Math.sin(t*3+sk.ph), sk.x+46, sk.y+2*Math.sin(t*2+sk.ph));
+    ctx.stroke();
+  }
+}
+
+function drawPattern(geo){
+  if (state.pattern === 'none') return;
+  const s = state.size;
+  ctx.fillStyle = state.patColor; ctx.strokeStyle = state.patColor;
+  ctx.globalAlpha = 0.8;
+  const top = -10, bot = geo.mouthY + 10, w = geo.mouthR + 20;
+  if (state.pattern === 'dots'){
+    let row = 0;
+    for (let y = top+14; y < bot; y += 24*s, row++){
+      for (let x = -w + (row%2 ? 13*s : 0); x < w; x += 26*s){
+        ctx.beginPath(); ctx.arc(x, y, 6.5*s, 0, 7); ctx.fill();
+      }
+    }
+  } else if (state.pattern === 'stripes'){
+    for (let y = top+10; y < bot; y += 24*s) ctx.fillRect(-w, y, 2*w, 9*s);
+  } else if (state.pattern === 'wave'){
+    ctx.lineWidth = 2.2*s;
+    let row = 0;
+    for (let y = top+18; y < bot+14; y += 20*s, row++){
+      for (let x = -w + (row%2 ? 16*s : 0); x < w+16; x += 32*s){
+        for (const r of [15, 10, 5]){
+          ctx.beginPath(); ctx.arc(x, y, r*s, Math.PI, 0); ctx.stroke();
+        }
+      }
+    }
+  } else if (state.pattern === 'ichimatsu'){
+    const c = 18*s;
+    let row = 0;
+    for (let y = top+4; y < bot; y += c, row++){
+      for (let x = -w + (row%2 ? c : 0); x < w; x += c*2){
+        ctx.fillRect(x, y, c, c);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+const STAMP_DRAW = {
+  goldfish(c){
+    c.fillStyle = '#e0432c';
+    c.beginPath(); c.ellipse(0, 0, 11, 7, 0, 0, 7); c.fill();
+    c.beginPath(); c.moveTo(8, 0);
+    c.quadraticCurveTo(20, -10, 24, -3);
+    c.quadraticCurveTo(19, -1, 19, 0);
+    c.quadraticCurveTo(19, 1, 24, 3);
+    c.quadraticCurveTo(20, 10, 8, 0); c.fill();
+    c.fillStyle = '#fff';
+    c.beginPath(); c.arc(-6, -2, 2.4, 0, 7); c.fill();
+    c.fillStyle = '#222';
+    c.beginPath(); c.arc(-6, -2, 1.1, 0, 7); c.fill();
+  },
+  hanabi(c){
+    for (let k = 0; k < 12; k++){
+      const a = k*Math.PI/6;
+      c.strokeStyle = k%2 ? '#e8a63a' : '#e0563f'; c.lineWidth = 1.8;
+      c.beginPath(); c.moveTo(Math.cos(a)*4, Math.sin(a)*4);
+      c.lineTo(Math.cos(a)*15, Math.sin(a)*15); c.stroke();
+      c.fillStyle = k%2 ? '#e8a63a' : '#e0563f';
+      c.beginPath(); c.arc(Math.cos(a)*17.5, Math.sin(a)*17.5, 1.6, 0, 7); c.fill();
+    }
+  },
+  asagao(c){
+    c.fillStyle = '#6f7fc4';
+    c.beginPath(); c.arc(0, 0, 12, 0, 7); c.fill();
+    c.strokeStyle = '#fff'; c.lineWidth = 3; c.lineCap = 'round';
+    for (let k = 0; k < 5; k++){
+      const a = k*Math.PI*2/5 - Math.PI/2;
+      c.beginPath(); c.moveTo(Math.cos(a)*3, Math.sin(a)*3);
+      c.lineTo(Math.cos(a)*10.5, Math.sin(a)*10.5); c.stroke();
+    }
+    c.fillStyle = '#f4e6b0';
+    c.beginPath(); c.arc(0, 0, 2.6, 0, 7); c.fill();
+  },
+  tonbo(c){
+    c.rotate(-0.35);
+    c.strokeStyle = '#c14a35'; c.lineWidth = 2.6; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(0, -1); c.lineTo(0, 16); c.stroke();
+    c.fillStyle = '#c14a35';
+    c.beginPath(); c.arc(0, -3.5, 2.8, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.65)';
+    for (const [dx, rot] of [[-1, -0.25], [1, 0.25]]){
+      c.beginPath(); c.ellipse(dx*9, 1, 8.5, 2.6, rot*dx>0?rot:rot, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(dx*8, 5, 7, 2.2, -rot, 0, 7); c.fill();
+    }
+  },
+};
+
+function drawTanzaku(t){
+  const s = state.size;
+  const w = 15*s, len = 96*s;
+  const fl = 3.5*Math.min(1.6, Math.abs(windSignal)*0.5 + Math.abs(phys.tzv)*0.8);
+  const off = y => fl*Math.sin(y/16 + t*7);
+  ctx.beginPath();
+  ctx.moveTo(-w + off(0), 0);
+  for (let y = 8; y <= len; y += 8) ctx.lineTo(-w + off(y), y);
+  for (let y = len; y >= 0; y -= 8) ctx.lineTo(w + off(y), y);
+  ctx.closePath();
+  ctx.fillStyle = state.tzColor;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#3a3f45';
+  ctx.font = `600 ${17*s}px "Hiragino Maru Gothic ProN","HGMaruGothicMPRO","HG丸ｺﾞｼｯｸM-PRO","Yu Gothic",sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const chars = [...state.tzText].slice(0, 4);
+  const step = Math.min(22*s, (len - 24) / Math.max(1, chars.length));
+  chars.forEach((ch, i) => {
+    const y = 20 + i*step;
+    ctx.fillText(ch, off(y), y);
+  });
+}
+
+function drawBellAssembly(t){
+  const geo = bellGeo();
+  ctx.save();
+  ctx.translate(PIVOT.x, PIVOT.y);
+  ctx.rotate(phys.th);
+  // rope
+  ctx.strokeStyle = theme.rope; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(0, ROPE_LEN); ctx.stroke();
+  ctx.translate(0, ROPE_LEN);
+
+  // clapper + tanzaku (behind glass)
+  ctx.save();
+  ctx.translate(0, 12*state.size);
+  ctx.rotate(phys.tc - phys.th);
+  ctx.strokeStyle = theme.rope; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, geo.clapLen - 12*state.size); ctx.stroke();
+  ctx.translate(0, geo.clapLen - 12*state.size);
+  ctx.fillStyle = phys.flash > 0.4 ? '#f2e3c0' : '#c8b89a';
+  ctx.beginPath(); ctx.arc(0, 0, 5.5*state.size, 0, 7); ctx.fill();
+  ctx.rotate(phys.tz - phys.tc);
+  ctx.translate(0, 6);
+  drawTanzaku(t);
+  ctx.restore();
+
+  // glass bell
+  ctx.save();
+  ctx.globalAlpha = state.alpha;
+  ctx.fillStyle = state.glass;
+  ctx.fill(geo.path);
+  ctx.globalAlpha = 1;
+  ctx.save();
+  ctx.clip(geo.path);
+  drawPattern(geo);
+  for (const st of state.stamps){
+    ctx.save(); ctx.translate(st.x, st.y); ctx.rotate(st.rot); ctx.scale(st.sc, st.sc);
+    STAMP_DRAW[st.k](ctx); ctx.restore();
+  }
+  // highlight
+  const hg = ctx.createRadialGradient(-geo.mouthR*0.35, geo.mouthY*0.3, 2, -geo.mouthR*0.35, geo.mouthY*0.3, geo.mouthR*0.9);
+  hg.addColorStop(0, 'rgba(255,255,255,0.5)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hg;
+  ctx.fillRect(-geo.mouthR-20, -20, geo.mouthR*2+40, geo.mouthY+40);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.4;
+  ctx.stroke(geo.path);
+  ctx.restore();
+
+  ctx.restore();
+  return geo;
+}
+
+/* ================= loop ================= */
+let last = performance.now();
+function frame(now){
+  const t = now/1000;
+  let dt = Math.min(0.033, (now - last)/1000); last = now;
+  const geo = bellGeo();
+  // physics: substep for stability
+  stepPhysics(dt/2, t, geo); stepPhysics(dt/2, t, geo);
+  drawScene(t);
+  drawBellAssembly(t);
+  drawStreaks(t, dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ================= audio ================= */
+let ac = null, master = null, recDest = null;
+function ensureAudio(){
+  if (!ac){
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = 0.9;
+    master.connect(ac.destination);
+  }
+  if (ac.state === 'suspended') ac.resume();
+}
+function ring(vel){
+  if (!ac) return;
+  const m = MATERIALS[state.material];
+  const t0 = ac.currentTime;
+  const f0 = m.base * state.pitch;
+  const out = ac.createGain(); out.gain.value = 1;
+  const pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+  if (pan){ pan.pan.value = (Math.random()-0.5)*0.3; out.connect(pan); pan.connect(master); }
+  else out.connect(master);
+  for (const [ratio, pg, dmul] of m.parts){
+    const dur = Math.max(0.08, m.decay * state.decay * dmul);
+    const o = ac.createOscillator(); o.type = 'sine';
+    o.frequency.value = f0 * ratio * (1 + (Math.random()-0.5)*0.004);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vel * pg, t0 + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(out);
+    o.start(t0); o.stop(t0 + dur + 0.1);
+    if (m.shimmer && ratio === 1){
+      const o2 = ac.createOscillator(); o2.type = 'sine';
+      o2.frequency.value = f0 + m.shimmer;
+      const g2 = ac.createGain();
+      g2.gain.setValueAtTime(0.0001, t0);
+      g2.gain.exponentialRampToValueAtTime(vel*0.6, t0 + 0.005);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t0 + dur*0.9);
+      o2.connect(g2); g2.connect(out);
+      o2.start(t0); o2.stop(t0 + dur + 0.1);
+    }
+  }
+  // strike transient
+  const nDur = state.material === 'bamboo' ? 0.05 : 0.02;
+  const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate*nDur), ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const bp = ac.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = state.material === 'bamboo' ? 900 : 5200;
+  bp.Q.value = 1.5;
+  const ng = ac.createGain(); ng.gain.value = vel * m.noise * 2;
+  src.connect(bp); bp.connect(ng); ng.connect(out);
+  src.start(t0);
+}
+
+/* ================= interactions ================= */
+function canvasPoint(e){
+  const r = canvas.getBoundingClientRect();
+  return { x:(e.clientX - r.left)*480/r.width, y:(e.clientY - r.top)*640/r.height };
+}
+canvas.addEventListener('pointerdown', e => {
+  ensureAudio();
+  const p = canvasPoint(e);
+  if (state.step === 1){
+    // place stamp in bell-local coords
+    const lx = p.x - PIVOT.x, ly = p.y - (PIVOT.y + ROPE_LEN);
+    const geo = bellGeo();
+    if (hitCtx.isPointInPath(geo.path, lx, ly)){
+      state.stamps.push({k:state.stamp, x:lx, y:ly, rot:(Math.random()-0.5)*0.5, sc:0.9 + Math.random()*0.3});
+      ring(0.15);
+    }
+  } else {
+    phys.tcv += (Math.random() > 0.5 ? 1 : -1) * (1.6 + Math.random());
+  }
+});
+
+/* option-row builder */
+function buildOpts(el, items, get, set){
+  items.forEach(([val, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    b.addEventListener('click', () => { set(val); refresh(el, get); });
+    b.dataset.val = val;
+    el.appendChild(b);
+  });
+  refresh(el, get);
+}
+function buildSwatches(el, items, get, set){
+  items.forEach(([val, label]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.style.background = val;
+    b.title = label; b.setAttribute('aria-label', label);
+    b.addEventListener('click', () => { set(val); refresh(el, get); });
+    b.dataset.val = val;
+    el.appendChild(b);
+  });
+  refresh(el, get);
+}
+function refresh(el, get){
+  for (const b of el.children) b.setAttribute('aria-pressed', String(b.dataset.val === String(get())));
+}
+
+buildOpts(document.getElementById('shapeRow'), SHAPES, () => state.shape, v => state.shape = v);
+buildSwatches(document.getElementById('glassRow'), GLASS_COLORS, () => state.glass, v => state.glass = v);
+buildOpts(document.getElementById('patRow'), PATTERNS, () => state.pattern, v => state.pattern = v);
+buildSwatches(document.getElementById('patColorRow'), GLASS_COLORS, () => state.patColor, v => state.patColor = v);
+buildOpts(document.getElementById('stampRow'), STAMPS, () => state.stamp, v => state.stamp = v);
+buildSwatches(document.getElementById('tzColorRow'), TZ_COLORS, () => state.tzColor, v => state.tzColor = v);
+buildOpts(document.getElementById('matRow'),
+  Object.entries(MATERIALS).map(([k, m]) => [k, m.label]),
+  () => state.material,
+  v => { state.material = v; ensureAudio(); ring(0.35); });
+
+/* sliders */
+function bindSlider(id, valId, fmt, apply){
+  const el = document.getElementById(id), out = document.getElementById(valId);
+  const upd = () => { apply(+el.value); if (out) out.textContent = fmt(+el.value); };
+  el.addEventListener('input', upd); upd();
+}
+bindSlider('alpha', 'alphaVal', v => `${v}%`, v => state.alpha = v/100);
+bindSlider('size', 'sizeVal', v => `${v}%`, v => state.size = v/100);
+bindSlider('pitch', 'pitchVal', v => v < 90 ? '低め' : v > 115 ? '高め' : 'ふつう', v => state.pitch = v/100);
+bindSlider('decay', 'decayVal', v => v < 70 ? '短い' : v > 140 ? '長い' : 'ふつう', v => state.decay = v/100);
+bindSlider('wind', 'windVal', v => v < 35 ? 'そよ風' : v > 72 ? '強い風' : '心地よい風', v => state.wind = v/100);
+
+document.getElementById('tzText').addEventListener('input', e => state.tzText = e.target.value || '　');
+document.getElementById('restartBtn').addEventListener('click', () => {
+  if (confirm('いまの風鈴をリセットして、はじめからつくり直しますか？')){
+    location.reload();
+  }
+});
+document.getElementById('undoStamp').addEventListener('click', () => state.stamps.pop());
+document.getElementById('clearStamp').addEventListener('click', () => state.stamps.length = 0);
+document.getElementById('testSound').addEventListener('click', () => { ensureAudio(); ring(0.4); });
+
+/* steps */
+const stepBtns = [...document.querySelectorAll('nav.steps button')];
+const hint = document.getElementById('stageHint');
+function goStep(n){
+  state.step = n;
+  stepBtns.forEach((b, i) => i === n ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current'));
+  document.querySelectorAll('.step-body').forEach((p, i) => p.classList.toggle('active', i === n));
+  hint.textContent = n === 1 ? '風鈴をタップすると、選んだ絵柄が入ります。'
+    : n === 3 ? '「風を吹かせる」で風鈴が揺れて鳴ります。タップでも鳴ります。'
+    : '風鈴をタップすると鳴ります。';
+  if (n !== 3 && state.blowing) setBlowing(false);
+}
+stepBtns.forEach(b => b.addEventListener('click', () => goStep(+b.dataset.step)));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => goStep(+b.dataset.go)));
+
+/* wind toggle */
+const windToggle = document.getElementById('windToggle');
+function setBlowing(on){
+  state.blowing = on;
+  windToggle.textContent = on ? '風を止める' : '風を吹かせる';
+  windToggle.classList.toggle('primary', !on);
+}
+windToggle.addEventListener('click', () => { ensureAudio(); setBlowing(!state.blowing); });
+
+/* recording */
+const recBtn = document.getElementById('recBtn'), recStatus = document.getElementById('recStatus');
+const playBtn = document.getElementById('playBtn'), playVideo = document.getElementById('playVideo');
+let lastRecUrl = null;
+playBtn.addEventListener('click', () => {
+  if (!lastRecUrl) return;
+  if (playVideo.style.display === 'none'){
+    playVideo.style.display = 'block';
+    playVideo.src = lastRecUrl;
+    playVideo.play();
+    playBtn.textContent = '■ 再生を閉じる';
+  } else {
+    playVideo.pause();
+    playVideo.style.display = 'none';
+    playBtn.textContent = '▶ 録画した動画を再生';
+  }
+});
+recBtn.addEventListener('click', async () => {
+  if (typeof MediaRecorder === 'undefined' || !canvas.captureStream){
+    recStatus.textContent = 'このブラウザは録画に対応していません。';
+    return;
+  }
+  ensureAudio();
+  // give the AudioContext a moment to resume (needs the user's click gesture)
+  await Promise.race([ac.resume(), new Promise(r => setTimeout(r, 400))]).catch(() => {});
+  if (!recDest){ recDest = ac.createMediaStreamDestination(); master.connect(recDest); }
+  setBlowing(true);
+  const stream = canvas.captureStream(30);
+  // a suspended AudioContext delivers no samples and stalls the recorder —
+  // only mux audio when it is actually running
+  if (ac.state === 'running'){
+    recDest.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+  }
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+  let rec;
+  try { rec = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined); }
+  catch(err){ recStatus.textContent = '録画を開始できませんでした。'; return; }
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = () => {
+    const blob = new Blob(chunks, {type: mime || 'video/webm'});
+    const a = document.createElement('a');
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    if (lastRecUrl) URL.revokeObjectURL(lastRecUrl);
+    lastRecUrl = URL.createObjectURL(blob);
+    a.href = lastRecUrl;
+    a.download = `風鈴_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.${ext}`;
+    a.click();
+    recStatus.textContent = '保存しました 🎐';
+    recBtn.disabled = false;
+    playBtn.disabled = false;
+    playVideo.style.display = 'none';
+    playBtn.textContent = '▶ 録画した動画を再生';
+  };
+  rec.start(500);
+  recBtn.disabled = true;
+  let remain = 10;
+  recStatus.textContent = `録画中… ${remain}秒`;
+  const iv = setInterval(() => {
+    remain--;
+    if (remain <= 0){ clearInterval(iv); rec.stop(); recStatus.textContent = '書き出し中…'; }
+    else recStatus.textContent = `録画中… ${remain}秒`;
+  }, 1000);
+});
+</script>
+
+</body>
+</html>
